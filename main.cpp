@@ -20,17 +20,19 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    my_packet* bp = get_packet();
-    u_char my_mac[6] = {0, };
-    u_char my_ip[4] = {127, 0, 0, 1};
-    u_char broadcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    const u_char s_mac[6] = {0, };
+    u_char s_ip[4] = {0, };
+    const u_char d_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    u_char d_ip[4] = {0, };
 
-    GetSvrMacAddress(my_mac);
+    const u_char arp_packet[LIBNET_ETH_H + LIBNET_ARP_ETH_IP_H] = {0, };
+    struct libnet_ethernet_hdr* e = (libnet_ethernet_hdr*)&arp_packet[0];
+    struct libnet_arp_hdr* a = (libnet_arp_hdr*)&arp_packet[LIBNET_ETH_H];
 
-    make_arp_packet(bp, my_mac, my_ip, broadcast_mac, (u_char*)argv[3]);
+    GetSvrMacAddress(s_mac);
+    ip_from_str(d_ip, argv[2]);
 
-    pcap_sendpacket(handle, (const u_char*)broadcast_packet, sizeof(broadcast_packet));
-
+    // Get my IP address
     while (true)
     {
         struct pcap_pkthdr* header;
@@ -39,17 +41,90 @@ int main(int argc, char* argv[])
         if (res == 0) continue;
         if (res == -1 || res == -2) break;
 
-        if( is_arp_packet(packet) )
+        const u_char tmp_mac[6] = {0, };    // dest mac
+        memcpy((void*)tmp_mac, packet, sizeof(tmp_mac));
+
+        if( is_same_mac(tmp_mac, s_mac) && is_arp_packet(packet) )
         {
-            // u_char ip[4];
-            //struct sockaddr_in tmp;
-
-
-            // if(is_same_ip(inet_aton(argv[2], &tmp.sin_addr), copy_ip(ip, packet)));
-            // inet_aton();
-            // struct sockaddr_in a;
+            memcpy(s_ip, &packet[LIBNET_ETH_H + LIBNET_ARP_H + 16], sizeof(s_ip));
+            break;
+        }
+        if( is_same_mac(tmp_mac, s_mac) && is_ip_packet(packet) )
+        {
+            memcpy(s_ip, &packet[LIBNET_ETH_H + 16], sizeof(s_ip));
+            break;
         }
     }
+
+    memcpy(&e->ether_dhost, d_mac, sizeof(d_mac));
+    memcpy(&e->ether_shost, s_mac, sizeof(s_mac));
+    e->ether_type = htons(ETHERTYPE_ARP);
+
+    a->ar_hrd = htons(ARPHRD_ETHER);
+    a->ar_pro = htons(ETHERTYPE_IP);
+    a->ar_hln = MAC_SIZE;
+    a->ar_pln = IP_SIZE;
+    a->ar_op  = htons(ARPOP_REQUEST);
+
+    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H     ], s_mac, sizeof(s_mac));
+    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 6 ], s_ip , sizeof(s_ip ));
+    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], d_mac, sizeof(d_mac));
+    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 16], d_ip , sizeof(d_ip ));
+
+    for(int i=0; i<LIBNET_ETH_H + LIBNET_ARP_ETH_IP_H; i++)
+    {
+        printf("%.2X ", arp_packet[i]);
+        if(i%16 == 15) printf("\n");
+    }
+    printf("\n\n");
+
+    // Who has s_ip[] ip??
+    // pcap_sendpacket(handle, packet, sizeof(packet));
+
+    // Get sender's mac address
+    while (true)
+    {
+        struct pcap_pkthdr* header;
+        const u_char* packet;
+        int res = pcap_next_ex(handle, &header, &packet);
+        if (res == 0) continue;
+        if (res == -1 || res == -2) break;
+
+        const u_char tmp_mac[6] = {0, };    // dest mac
+        memcpy((void*)tmp_mac, packet, sizeof(tmp_mac));
+
+        printf("%d %d %d\n", is_same_mac(tmp_mac, s_mac), is_reply_arp_packet(packet),
+               is_same_ip(s_ip, (u_char*)&packet[LIBNET_ETH_H + LIBNET_ARP_H + 16]));
+
+        if( is_same_mac(tmp_mac, s_mac) && is_reply_arp_packet(packet)
+                && is_same_ip(s_ip, (u_char*)&packet[LIBNET_ETH_H + LIBNET_ARP_H + 16]))
+        {
+            memcpy((void*)d_mac, &packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], sizeof(d_mac));
+            break;
+        }
+    }
+
+    // Save d_mac
+    memcpy(&e->ether_dhost, d_mac, sizeof(d_mac));
+    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], d_mac, sizeof(d_mac));
+
+    for(int i=0; i<6; i++)
+    {
+        printf("%.2X ", d_mac[i]);
+    }
+    printf("\n");
+
+    // Save target's IP address
+    ip_from_str(s_ip, argv[3]); // argv[3]: target ip
+
+    for(int i=0; i<LIBNET_ETH_H + LIBNET_ARP_ETH_IP_H; i++)
+    {
+        printf("%.2X ", arp_packet[i]);
+        if(i%16 == 15) printf("\n");
+    }
+    printf("\n");
+
+    // pcap_sendpacket(handle, packet, sizeof(packet));
 
     pcap_close(handle);
     return 0;
