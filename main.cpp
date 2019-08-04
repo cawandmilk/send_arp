@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
 
     memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H     ], s_mac, sizeof(s_mac));
     memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 6 ], s_ip , sizeof(s_ip ));
-    memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], d_mac, sizeof(d_mac));
+    // memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], d_mac, sizeof(d_mac));
     memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 16], d_ip , sizeof(d_ip ));
 
     for(int i=0; i<LIBNET_ETH_H + LIBNET_ARP_ETH_IP_H; i++)
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
     printf("\n\n");
 
     // Who has s_ip[] ip??
-    // pcap_sendpacket(handle, packet, sizeof(packet));
+    pcap_sendpacket(handle, arp_packet, sizeof(arp_packet));
 
     // Get sender's mac address
     while (true)
@@ -107,6 +107,7 @@ int main(int argc, char* argv[])
     // Save d_mac
     memcpy(&e->ether_dhost, d_mac, sizeof(d_mac));
     memcpy((void*)&arp_packet[LIBNET_ETH_H + LIBNET_ARP_H + 10], d_mac, sizeof(d_mac));
+    a->ar_op  = htons(ARPOP_REPLY);
 
     for(int i=0; i<6; i++)
     {
@@ -124,7 +125,7 @@ int main(int argc, char* argv[])
     }
     printf("\n");
 
-    // pcap_sendpacket(handle, packet, sizeof(packet));
+    pcap_sendpacket(handle, arp_packet, sizeof(arp_packet));
 
     pcap_close(handle);
     return 0;
