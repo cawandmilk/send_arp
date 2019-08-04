@@ -74,6 +74,17 @@ int is_ip_packet(const u_char* p)
     return ntohs(e.ether_type) == ETHERTYPE_IP;
 }
 
+int is_icmp_packet(const u_char* packet)
+{
+    if( !is_ip_packet(packet) )
+    {
+        struct libnet_ipv4_hdr* i;
+        memcpy(i, &packet[LIBNET_ETH_H], sizeof(i));
+
+        return i->ip_p == IPPROTO_ICMP;
+    }
+}
+
 int is_same_mac(const u_char* mac1, const u_char* mac2)
 {
     for(int i = 0; i < MAC_SIZE; i++)

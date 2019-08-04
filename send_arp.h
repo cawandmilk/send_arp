@@ -17,11 +17,23 @@
 #define MAC_SIZE 6
 #define IP_SIZE 4
 
+struct arp_packet
+{
+    struct libnet_ethernet_hdr e;
+    struct libnet_arp_hdr a;
+
+    u_char sdr_mac[MAC_SIZE];
+    u_char sdr_ip[IP_SIZE];
+    u_char tgt_mac[MAC_SIZE];
+    u_char tgt_ip[IP_SIZE];
+};
+
 void usage();
 int GetSvrMacAddress(const u_char* dst);
 
 int is_arp_packet(const u_char* packet);
 int is_ip_packet(const u_char* packet);
+int is_icmp_packet(const u_char* packet);
 
 int is_same_mac(const u_char* mac1, const u_char* mac2);
 int is_same_ip(u_char* ip1, u_char* ip2);
