@@ -31,17 +31,13 @@ struct arp_packet
 void usage();
 int GetSvrMacAddress(const u_char* dst);
 
-int is_arp_packet(const u_char* packet);
-int is_ip_packet(const u_char* packet);
-int is_icmp_packet(const u_char* packet);
-
 int is_same_mac(const u_char* mac1, const u_char* mac2);
 int is_same_ip(u_char* ip1, u_char* ip2);
-
-void ip_from_str(u_char* ip, char* str);
-void ip_from_arp_packet(u_char* dst, const u_char* packet);
-void ip_from_ip_packet(u_char* dst, const u_char* packet);
-
 int is_reply_arp_packet(const u_char* packet);
+int is_arp_packet(const u_char* p);
+
+void ip_from_str(u_char* dst, char* str);
+
+void print_mac(u_char* mac);
 
 #endif // SEND_ARP_H

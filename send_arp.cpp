@@ -1,7 +1,5 @@
 #include "send_arp.h"
 
-using namespace std;
-
 void usage()
 {
   printf("./send_arp <interface> <sender ip> <target ip>\n");
@@ -11,6 +9,8 @@ void usage()
 int GetSvrMacAddress(const u_char* dst)
 {
     // Reference: http://egloos.zum.com/kangfeel38/v/4273426
+    // Input: Array space to store my Mac address
+    // output: return 1 if it terminated well else 0
 
     int nSD; // Socket descriptor
     struct ifreq *ifr; // Interface request
@@ -40,7 +40,6 @@ int GetSvrMacAddress(const u_char* dst)
         for (i = 0; i < numif; i++)
         {
             struct ifreq *r = &ifr[i];
-            struct sockaddr_in *sin = (struct sockaddr_in *)&r->ifr_addr;
             if (!strcmp(r->ifr_name, "lo"))
             {
                 continue; // skip loopback interface
@@ -60,33 +59,20 @@ int GetSvrMacAddress(const u_char* dst)
 
 int is_arp_packet(const u_char* p)
 {
+    // Input: A packet which we want to check if the packet is arp or not
+    // output: return 1 if p's L3 protocol is arp else 0
+
     struct libnet_ethernet_hdr e;
     memcpy(&e, p, sizeof(e));
 
     return ntohs(e.ether_type) == ETHERTYPE_ARP;
 }
 
-int is_ip_packet(const u_char* p)
-{
-    struct libnet_ethernet_hdr e;
-    memcpy(&e, p, sizeof(e));
-
-    return ntohs(e.ether_type) == ETHERTYPE_IP;
-}
-
-int is_icmp_packet(const u_char* packet)
-{
-    if( !is_ip_packet(packet) )
-    {
-        struct libnet_ipv4_hdr* i;
-        memcpy(i, &packet[LIBNET_ETH_H], sizeof(i));
-
-        return i->ip_p == IPPROTO_ICMP;
-    }
-}
-
 int is_same_mac(const u_char* mac1, const u_char* mac2)
 {
+    // Input: Two mac address which we want to compare
+    // output: return 1 if two mac address were same else 0
+
     for(int i = 0; i < MAC_SIZE; i++)
     {
         if(mac1[i] != mac2[i])
@@ -99,9 +85,12 @@ int is_same_mac(const u_char* mac1, const u_char* mac2)
 
 int is_same_ip(u_char* ip1, u_char* ip2)
 {
+    // Input: Two ip address which we want to compare
+    // output: return 1 if two ip address were same else 0
+
     for(int i = 0; i < IP_SIZE; i++)
     {
-        if( ip1[i] != ip2[i])
+        if(ip1[i] != ip2[i])
         {
             return 0;
         }
@@ -111,17 +100,24 @@ int is_same_ip(u_char* ip1, u_char* ip2)
 
 int is_reply_arp_packet(const u_char* packet)
 {
+    // Input: A packet which we want if that was reply arp packet or not
+    // output: return 1 if that packet was reply arp packet else 0
+
     if( !is_arp_packet(packet) )
     {
         return 0;
     }
-    struct libnet_arp_hdr* a = (libnet_arp_hdr*)&packet[LIBNET_ETH_H];
+    struct libnet_arp_hdr a;
+    memcpy(&a, &packet[LIBNET_ETH_H], sizeof(a));
 
-    return ntohs(a->ar_op) == ARPOP_REPLY;
+    return ntohs(a.ar_op) == ARPOP_REPLY;
 }
 
-void ip_from_str(u_char* ip, char* str)
+void ip_from_str(u_char* dst, char* str)
 {
+    // Input: A string we want to convert and an array we want to store that converted ip.
+    // output: -
+
     for(uint32_t i = 0, cnt = 0; i < strlen(str); i++)
     {
         if(str[i] == '.')
@@ -130,8 +126,16 @@ void ip_from_str(u_char* ip, char* str)
         }
         else
         {
-            ip[cnt] = ip[cnt] * 10 + (u_char)(str[i] - '0');
+            dst[cnt] = dst[cnt] * 10 + (u_char)(str[i] - '0');
         }
     }
     printf("\n");
+}
+
+void print_mac(u_char* mac)
+{
+    // Input: A mac address what we want to print
+    // output: -
+
+    printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
