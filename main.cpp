@@ -12,7 +12,6 @@
  *  with mine and find out what is different between them.
  ****************************************************************************************/
 
-#include <stdio.h>
 #include "send_arp.h"
 
 int main(int argc, char* argv[])
@@ -91,17 +90,8 @@ int main(int argc, char* argv[])
         ip_from_str(ap.tgt_ip, argv[2]);            // sender's ip
     }    
     {
-        printf("[ARP-Broadcasting Packet]\n");
-        for(uint32_t i = 0; i < sizeof(ap); i++)
-        {
-            printf("%.2X ", ((const u_char*)&ap)[i]);
-//          printf("%.2X ", *(const u_char*)(&ap + i)); -> We can use the expression like this.
-            if(i % 16 == 15)
-            {
-                printf("\n");
-            }
-        }
-        printf("\n\n");
+        printf("ARP-Broadcasting Packet\n");
+        dump((void*)&ap, sizeof(ap));
     }
 
     /******************** Send ARP-Request Packet *******************/
@@ -155,17 +145,8 @@ int main(int argc, char* argv[])
         ap.a.ar_op  = htons(ARPOP_REPLY);                               // Change the op-code
     }
     {
-        printf("[Fake-ARP Packet]\n");
-        for(uint32_t i = 0; i < sizeof(ap); i++)
-        {
-            printf("%.2X ", ((const u_char*)&ap)[i]);
-//          printf("%.2X ", *(const u_char*)(&ap + i)); -> We can use the expression like this.
-            if(i % 16 == 15)
-            {
-                printf("\n");
-            }
-        }
-        printf("\n\n");
+        printf("Fake ARP Packet\n");
+        dump((void*)&ap, sizeof(ap));
     }
 
     /********************* Send Fake-ARP Packet *********************/

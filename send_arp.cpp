@@ -6,6 +6,19 @@ void usage()
   printf("sample: ./send_arp wlan0 192.168.10.2 192.168.10.1\n");
 }
 
+void dump(void* packet, size_t size)
+{
+    for(uint32_t i = 0; i < size; i++)
+    {
+        printf("%.2X ", ((uint8_t*)packet)[i]);
+        if(i % 16 == 15)
+        {
+            printf("\n");
+        }
+    }
+    printf("\n\n");
+}
+
 int GetSvrMacAddress(const u_char* dst)
 {
     // Reference: http://egloos.zum.com/kangfeel38/v/4273426

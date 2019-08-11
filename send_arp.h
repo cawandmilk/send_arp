@@ -5,6 +5,7 @@
 #include <net/if.h>
 #include <pcap.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -29,6 +30,7 @@ struct arp_packet
 };
 
 void usage();
+void dump(void* packet, size_t size);
 int GetSvrMacAddress(const u_char* dst);
 
 int is_same_mac(const u_char* mac1, const u_char* mac2);
