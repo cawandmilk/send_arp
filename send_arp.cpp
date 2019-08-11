@@ -2,15 +2,18 @@
 
 void usage()
 {
-  printf("./send_arp <interface> <sender ip> <target ip>\n");
-  printf("sample: ./send_arp wlan0 192.168.10.2 192.168.10.1\n");
+    printf("./send_arp <interface> <sender ip> <target ip>\n");
+    printf("sample: ./send_arp wlan0 192.168.10.2 192.168.10.1\n");
 }
 
-void dump(void* packet, size_t size)
+void dump(uint8_t* packet, size_t size)
 {
+    // Input: the packet what you want to print the data and the size of your packet
+    // output: -
+
     for(uint32_t i = 0; i < size; i++)
     {
-        printf("%.2X ", ((uint8_t*)packet)[i]);
+        printf("%.2X ", packet[i]);
         if(i % 16 == 15)
         {
             printf("\n");
@@ -19,7 +22,7 @@ void dump(void* packet, size_t size)
     printf("\n\n");
 }
 
-int GetSvrMacAddress(const u_char* dst)
+int GetSvrMacAddress(const uint8_t* dst)
 {
     // Reference: http://egloos.zum.com/kangfeel38/v/4273426
     // Input: Array space to store my Mac address
@@ -62,7 +65,7 @@ int GetSvrMacAddress(const u_char* dst)
                 return 0;
             }
 
-            memcpy((void*)dst, (u_char*)r->ifr_hwaddr.sa_data, MAC_SIZE);
+            memcpy((void*)dst, (uint8_t*)r->ifr_hwaddr.sa_data, MAC_SIZE);
         }
     }
     close(nSD);
@@ -70,82 +73,34 @@ int GetSvrMacAddress(const u_char* dst)
     return(1);
 }
 
-int is_arp_packet(const u_char* p)
+int is_arp_packet(const uint8_t* p)
 {
     // Input: A packet which we want to check if the packet is arp or not
     // output: return 1 if p's L3 protocol is arp else 0
 
     struct libnet_ethernet_hdr e;
-    memcpy(&e, p, sizeof(e));
+    memcpy(&e, &p[0], sizeof(e));
 
     return ntohs(e.ether_type) == ETHERTYPE_ARP;
 }
 
-int is_same_mac(const u_char* mac1, const u_char* mac2)
-{
-    // Input: Two mac address which we want to compare
-    // output: return 1 if two mac address were same else 0
 
-    for(int i = 0; i < MAC_SIZE; i++)
-    {
-        if(mac1[i] != mac2[i])
-        {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int is_same_ip(u_char* ip1, u_char* ip2)
-{
-    // Input: Two ip address which we want to compare
-    // output: return 1 if two ip address were same else 0
-
-    for(int i = 0; i < IP_SIZE; i++)
-    {
-        if(ip1[i] != ip2[i])
-        {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int is_reply_arp_packet(const u_char* packet)
+int is_reply_arp_packet(const uint8_t* p)
 {
     // Input: A packet which we want if that was reply arp packet or not
     // output: return 1 if that packet was reply arp packet else 0
 
-    if( !is_arp_packet(packet) )
+    if( !is_arp_packet(p) )
     {
         return 0;
     }
     struct libnet_arp_hdr a;
-    memcpy(&a, &packet[LIBNET_ETH_H], sizeof(a));
+    memcpy(&a, &p[LIBNET_ETH_H], sizeof(a));
 
     return ntohs(a.ar_op) == ARPOP_REPLY;
 }
 
-void ip_from_str(u_char* dst, char* str)
-{
-    // Input: A string we want to convert and an array we want to store that converted ip.
-    // output: -
-
-    for(uint32_t i = 0, cnt = 0; i < strlen(str); i++)
-    {
-        if(str[i] == '.')
-        {
-            cnt++;
-        }
-        else
-        {
-            dst[cnt] = dst[cnt] * 10 + (u_char)(str[i] - '0');
-        }
-    }
-    printf("\n");
-}
-
-void print_mac(u_char* mac)
+void print_mac(uint8_t* mac)
 {
     // Input: A mac address what we want to print
     // output: -

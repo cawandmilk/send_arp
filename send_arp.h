@@ -23,23 +23,18 @@ struct arp_packet
     struct libnet_ethernet_hdr e;
     struct libnet_arp_hdr a;
 
-    u_char sdr_mac[MAC_SIZE];
-    u_char sdr_ip[IP_SIZE];
-    u_char tgt_mac[MAC_SIZE];
-    u_char tgt_ip[IP_SIZE];
+    uint8_t  sdr_mac[MAC_SIZE];
+    uint32_t sdr_ip;
+    uint8_t  tgt_mac[MAC_SIZE];
+    uint32_t tgt_ip;
 };
 
 void usage();
-void dump(void* packet, size_t size);
-int GetSvrMacAddress(const u_char* dst);
+void dump(uint8_t* packet, size_t size);
+int GetSvrMacAddress(const uint8_t* dst);
 
-int is_same_mac(const u_char* mac1, const u_char* mac2);
-int is_same_ip(u_char* ip1, u_char* ip2);
-int is_reply_arp_packet(const u_char* packet);
-int is_arp_packet(const u_char* p);
-
-void ip_from_str(u_char* dst, char* str);
-
-void print_mac(u_char* mac);
+int is_reply_arp_packet(const uint8_t* packet);
+int is_arp_packet(const uint8_t* p);
+void print_mac(uint8_t* mac);
 
 #endif // SEND_ARP_H
