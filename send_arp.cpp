@@ -6,7 +6,7 @@ void usage()
     printf("sample: ./send_arp wlan0 192.168.10.2 192.168.10.1\n");
 }
 
-void dump(uint8_t* packet, size_t size)
+void dump(const uint8_t* packet, size_t size)
 {
     // Input: the packet what you want to print the data and the size of your packet
     // output: -
@@ -100,7 +100,7 @@ int is_reply_arp_packet(const uint8_t* p)
     return ntohs(a.ar_op) == ARPOP_REPLY;
 }
 
-void print_mac(uint8_t* mac)
+void print_mac(const uint8_t* mac)
 {
     // Input: A mac address what we want to print
     // output: -

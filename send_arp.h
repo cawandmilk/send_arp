@@ -18,6 +18,7 @@
 #define MAC_SIZE 6
 #define IP_SIZE 4
 
+#pragma pack(push, 1) // struture padding terminate
 struct arp_packet
 {
     struct libnet_ethernet_hdr e;
@@ -28,13 +29,14 @@ struct arp_packet
     uint8_t  tgt_mac[MAC_SIZE];
     uint32_t tgt_ip;
 };
+#pragma pack(pop)
 
 void usage();
-void dump(uint8_t* packet, size_t size);
+void dump(const uint8_t* packet, size_t size);
 int GetSvrMacAddress(const uint8_t* dst);
 
 int is_reply_arp_packet(const uint8_t* packet);
 int is_arp_packet(const uint8_t* p);
-void print_mac(uint8_t* mac);
+void print_mac(const uint8_t* mac);
 
 #endif // SEND_ARP_H

