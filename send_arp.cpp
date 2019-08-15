@@ -22,55 +22,43 @@ void dump(const uint8_t* packet, size_t size)
     printf("\n\n");
 }
 
-int GetSvrMacAddress(const uint8_t* dst)
+void GetSvrMACAddress(uint8_t* dst)
 {
-    // Reference: http://egloos.zum.com/kangfeel38/v/4273426
-    // Input: Array space to store my Mac address
-    // output: return 1 if it terminated well else 0
+    FILE* fp = popen("/sbin/ifconfig | grep 'ether' | tr -s ' ' | cut -d ' ' -f3", "r");
+    char hostMAC_str[20] = {0, }, *result;
 
-    int nSD; // Socket descriptor
-    struct ifreq *ifr; // Interface request
-    struct ifconf ifc;
-    int i, numif;
-
-    memset(&ifc, 0, sizeof(ifc));
-    ifc.ifc_ifcu.ifcu_req = nullptr;
-    ifc.ifc_len = 0;
-
-    // Create a socket that we can use for all of our ioctls
-    nSD = socket(PF_INET, SOCK_DGRAM, 0);
-    if(nSD < 0)  return 0;
-    if(ioctl(nSD, SIOCGIFCONF, &ifc) < 0) return 0;
-    if((ifr = (ifreq*)malloc(ifc.ifc_len)) == nullptr)
+    if( (result = fgets(hostMAC_str, 20, fp)) != nullptr )
     {
-        return 0;
+        for(int i = 0; i < MAC_SIZE; i++)
+        {
+            dst[i] += hostMAC_str[3*i] >= 'A' ? hostMAC_str[3*i] - 'A' + 10 : hostMAC_str[3*i] - '0';
+            dst[i] *= 16;
+            dst[i] += hostMAC_str[3*i+1] >= 'A' ? hostMAC_str[3*i+1] - 'A' + 10 : hostMAC_str[3*i+1] - '0';
+        }
     }
     else
     {
-        ifc.ifc_ifcu.ifcu_req = ifr;
-        if (ioctl(nSD, SIOCGIFCONF, &ifc) < 0)
-        {
-            return 0;
-        }
-        numif = ifc.ifc_len / sizeof(struct ifreq);
-        for (i = 0; i < numif; i++)
-        {
-            struct ifreq *r = &ifr[i];
-            if (!strcmp(r->ifr_name, "lo"))
-            {
-                continue; // skip loopback interface
-            }
-            if(ioctl(nSD, SIOCGIFHWADDR, r) < 0)
-            {
-                return 0;
-            }
-
-            memcpy((void*)dst, (uint8_t*)r->ifr_hwaddr.sa_data, MAC_SIZE);
-        }
+        printf("MAC assignming error!\n");
     }
-    close(nSD);
-    free(ifr);
-    return(1);
+
+    pclose(fp);
+}
+
+void GetSvrIPAddress(uint32_t* dst)
+{
+    FILE* fp = popen("hostname -I", "r");
+    char hostIP_str[20] = {0, }, *result;
+
+    if( (result = fgets(hostIP_str, 20, fp)) != nullptr )
+    {
+        *dst = inet_addr(hostIP_str);
+    }
+    else
+    {
+        printf("IP assigning error!\n");
+    }
+
+    pclose(fp);
 }
 
 int is_arp_packet(const uint8_t* p)

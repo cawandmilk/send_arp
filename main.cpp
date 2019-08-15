@@ -44,50 +44,13 @@ int main(int argc, char* argv[])
     uint8_t sender_mac[MAC_SIZE] = {0, };  // declear to make the code simplify
 
     /////////////////////////////////////////////////////////////////////
-    // Get My IP
-    /////////////////////////////////////////////////////////////////////
-    /*{
-        // https://technote.kr/176 [TechNote.kr]
-        struct ifreq ifr;
-        char ipstr[40];
-        int s;
-
-        s = socket(AF_INET, SOCK_DGRAM, 0);
-        strncpy(ifr.ifr_name, "ens33", IFNAMSIZ);
-
-        if (ioctl(s, SIOCGIFADDR, &ifr) < 0)
-        {
-            printf("Error");
-        }
-        else
-        {
-            inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, ipstr, sizeof(struct sockaddr));
-
-            memset(ap.sdr_ip, 0, sizeof(ap.sdr_ip));
-
-            for(unsigned int i = 0, cnt = 0; i < strlen(ipstr); i++)
-            {
-                if(ipstr[i] == '.')
-                {
-                    cnt++;
-                }
-                else
-                {
-                    ap.sdr_ip[cnt] = ap.sdr_ip[cnt] * 10 + (ipstr[i] - '0');
-                }
-            }
-
-        }
-    }*/
-
-    /////////////////////////////////////////////////////////////////////
     // Set ARP-Request Packet
     /////////////////////////////////////////////////////////////////////
     {
         printf("Setting arp-request packet...\n\n");
 
         memset(ap.e.ether_dhost, 0xFF, MAC_SIZE);
-        GetSvrMacAddress(ap.e.ether_shost);
+        GetSvrMACAddress(ap.e.ether_shost);
         ap.e.ether_type = htons(ETHERTYPE_ARP);
 
         ap.a.ar_hrd = htons(ARPHRD_ETHER);
@@ -96,10 +59,10 @@ int main(int argc, char* argv[])
         ap.a.ar_pln = IP_SIZE;
         ap.a.ar_op  = htons(ARPOP_REQUEST);
 
-        GetSvrMacAddress(ap.sdr_mac);               // my mac
-//      ap.sdr_ip = 0;                              // my ip
-//      memset(ap.tgt_mac, 0, sizeof(ap.tgt_mac));  // sender's mac
-        ap.tgt_ip = inet_addr(argv[2]);             // sender's ip
+        memcpy(ap.sdr_mac, ap.e.ether_shost, MAC_SIZE); // my mac
+        GetSvrIPAddress(&ap.sdr_ip);                    // my ip
+//      memset(ap.tgt_mac, 0, sizeof(ap.tgt_mac));      // sender's mac
+        ap.tgt_ip = inet_addr(argv[2]);                 // sender's ip
     }
     {
         printf("[ARP-Broadcasting Packet]\n");

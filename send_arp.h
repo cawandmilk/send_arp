@@ -33,7 +33,8 @@ struct arp_packet
 
 void usage();
 void dump(const uint8_t* packet, size_t size);
-int GetSvrMacAddress(const uint8_t* dst);
+void GetSvrMACAddress(uint8_t* dst);
+void GetSvrIPAddress(uint32_t* dst);
 
 int is_reply_arp_packet(const uint8_t* packet);
 int is_arp_packet(const uint8_t* p);
